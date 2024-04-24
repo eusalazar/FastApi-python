@@ -1,14 +1,20 @@
-from fastapi import FastAPI, Body, Path, Query, Request, HTTPException, Depends
+from fastapi import Depends, FastAPI, Body, HTTPException, Path, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from jwt_manager import create_token, validate_token
 from fastapi.security import HTTPBearer
+from config.database import Session, engine, Base
+from config.models.movie import Movie as MovieModel 
+
+
+ 
 
 app = FastAPI()
 app.title = "Mi Aplicacion con FastApi"
 app.version = "0.0.1"
 
+Base.metadata.create_all(bind=engine)
 class JWTBearer(HTTPBearer):
     async def __call__(self, request: Request):
         auth = await super().__call__(request)
@@ -69,7 +75,7 @@ def message():
 @app.post('/login', tags=['auth'])
 def login(user: User):
     if user.email == "admin@gmail.com" and user.password == "admin":
-        token: str = create_token(user.model_dump())
+        token: str = create_token(user.model_dum())
         return JSONResponse(status_code=200, content=token)
 
 @app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBearer())])
@@ -93,7 +99,10 @@ def get_movies_by_category(category: str = Query(min_length=5, max_length=15)) -
 
 @app.post('/movies', tags=['movies'], response_model=dict, status_code=201)
 def create_movie(movie: Movie) -> dict:
-    movies.append(movie)
+    db = Session()
+    new_movie = MovieModel(**movie.dict())
+    db.add(new_movie)
+    db.commit()
     return JSONResponse(status_code=201, content={"message": "Se ha registrado la pelicula"})
 
 @app.put('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
